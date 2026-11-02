@@ -1,59 +1,192 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Inventory & Sales Management System (UTS Web Programming 2)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Aplikasi Laravel sederhana: master data (kategori, produk, supplier), pembelian (stock-in),
+penjualan (stock-out), dashboard, role Admin/Staff. Tampilan memakai Bootstrap 5 (CDN).
 
-## About Laravel
+## 1. Project overview
+Stok berubah otomatis saat pembelian/penjualan berhasil. Penjualan dengan stok kurang ditolak.
+Semua simpan transaksi memakai `DB::transaction` + `lockForUpdate`.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 2. Requirements
+PHP 8.2+, Composer, MySQL, Laravel 11 atau 12 (aplikasi ini hanya berisi file tambahan di atas project Laravel baru).
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 3. Installation
+```bash
+composer create-project laravel/laravel inventory-sales
+cd inventory-sales
+# salin isi folder ini (app, database, resources, routes, tests) ke dalam project, timpa jika ditanya
+```
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## 4. Environment setup
+```bash
+cp .env.example .env        # (sudah ada jika memakai create-project)
+php artisan key:generate
+```
+Edit `.env`:
+```
+DB_CONNECTION=mysql
+DB_DATABASE=inventory_sales
+DB_USERNAME=root
+DB_PASSWORD=
+```
+Buat database kosong `inventory_sales` di MySQL.
 
-## Learning Laravel
+## 5. Migration & seeding
+```bash
+php artisan migrate --seed
+php artisan serve
+```
+Buka http://127.0.0.1:8000
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## 6. Demo account
+| Role  | Email             | Password |
+|-------|-------------------|----------|
+| Admin | admin@example.com | password |
+| Staff | staff@example.com | password |
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## 7. Features
+- Login/logout, password di-hash, route diproteksi `auth`
+- Role: Admin (semua fitur), Staff (lihat produk, buat pembelian & penjualan). Dijaga di server dengan Gate `admin` + middleware `can:admin`
+- CRUD kategori, produk, supplier (validasi, SKU unik, larangan hapus data yang sudah dipakai)
+- Pembelian & penjualan multi-item, total dihitung server, harga jual diambil dari database
+- Pembatalan transaksi (Admin) yang memulihkan stok secara konsisten
+- Dashboard (total produk, penjualan hari/bulan ini, jumlah transaksi, stok rendah) dari query agregat
+- Search SKU/nama, filter kategori/tanggal/status, pagination yang mempertahankan filter
+- CSRF, escaping Blade, kredensial hanya di `.env`
 
-## Laravel Sponsors
+## 8. Known limitations
+- Tidak ada payment gateway, multi-gudang, atau laporan ekspor
+- Edit/hapus pengguna belum ada (hanya daftar & tambah)
+- Pembatalan pembelian ditolak jika stok sudah terpakai (agar stok tidak negatif)
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## Testing
+Test memakai SQLite in-memory bawaan Laravel 11/12:
+```bash
+php artisan test
+```
+Skenario: guest ditolak, password salah, SKU duplikat/harga negatif, pembelian menambah stok,
+penjualan mengurangi stok, stok tidak cukup, rollback atomik, authorization Staff, pembatalan, search & pagination.
 
-### Premium Partners
+## ERD
+Diagram di bawah dirender otomatis oleh GitHub (Mermaid). Salinan gambar: [`docs/erd.png`](docs/erd.png), sumber: [`docs/erd.mmd`](docs/erd.mmd).
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+![ERD](docs/erd.png)
 
-## Contributing
+```mermaid
+erDiagram
+    users {
+        bigint id PK
+        string name
+        string email UK
+        string password
+        string role "admin | staff"
+    }
+    categories {
+        bigint id PK
+        string name UK
+    }
+    suppliers {
+        bigint id PK
+        string name
+        string phone
+        string email
+    }
+    products {
+        bigint id PK
+        bigint category_id FK
+        string sku UK
+        string name
+        decimal purchase_price
+        decimal selling_price
+        int stock
+        int minimum_stock
+    }
+    purchases {
+        bigint id PK
+        bigint supplier_id FK
+        bigint user_id FK
+        string purchase_number UK
+        decimal total
+        string status "completed | cancelled"
+        timestamp purchased_at
+    }
+    purchase_items {
+        bigint id PK
+        bigint purchase_id FK
+        bigint product_id FK
+        int quantity
+        decimal unit_cost
+        decimal subtotal
+    }
+    sales {
+        bigint id PK
+        bigint user_id FK
+        string sale_number UK
+        decimal total
+        string status "completed | cancelled"
+        timestamp sold_at
+    }
+    sale_items {
+        bigint id PK
+        bigint sale_id FK
+        bigint product_id FK
+        int quantity
+        decimal unit_price
+        decimal subtotal
+    }
+    categories ||--o{ products : "has"
+    suppliers ||--o{ purchases : "supplies"
+    users ||--o{ purchases : "creates"
+    users ||--o{ sales : "creates"
+    purchases ||--|{ purchase_items : "has"
+    sales ||--|{ sale_items : "has"
+    products ||--o{ purchase_items : "in"
+    products ||--o{ sale_items : "in"
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Penjelasan relasi
+| Relasi | Tipe Eloquent | Keterangan |
+|--------|---------------|------------|
+| categories → products | `Category hasMany Product` / `Product belongsTo Category` | `products.category_id` (restrictOnDelete) |
+| suppliers → purchases | `Supplier hasMany Purchase` / `Purchase belongsTo Supplier` | `purchases.supplier_id` |
+| users → purchases | `User hasMany Purchase` | `purchases.user_id` (petugas penerima) |
+| users → sales | `User hasMany Sale` | `sales.user_id` (kasir) |
+| purchases → purchase_items | `Purchase hasMany PurchaseItem` | `purchase_items.purchase_id` (cascadeOnDelete) |
+| sales → sale_items | `Sale hasMany SaleItem` | `sale_items.sale_id` (cascadeOnDelete) |
+| products → purchase_items / sale_items | `Product hasMany ...` | `product_id` (restrictOnDelete, produk yang sudah dipakai tidak bisa dihapus) |
 
-## Code of Conduct
+`hasMany` ada di sisi "satu" (mis. Sale hasMany SaleItem); `belongsTo` di sisi "banyak". Foreign key
+berada di tabel detail karena satu baris detail hanya milik satu header, sedangkan satu header punya banyak detail.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Screenshots
+Tampilan aplikasi (folder [`docs/screenshots`](docs/screenshots)).
 
-## Security Vulnerabilities
+### Login
+![Halaman login](docs/screenshots/01-login.png)
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### Dashboard
+Ringkasan penjualan hari/bulan ini, estimasi laba kotor, peringatan stok rendah, tren penjualan 7 hari, dan komposisi stok per kategori.
 
-## License
+![Dashboard](docs/screenshots/02-dashboard-owner.png)
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Top 5 produk terlaris, status kritis stok, log audit pembatalan transaksi, dan transaksi penjualan terkini.
+
+![Dashboard bagian bawah](docs/screenshots/03-dashboard-detail.png)
+
+### Etalase / Katalog Produk
+Filter kategori, pencarian nama/SKU, dan keranjang belanja.
+
+![Katalog produk](docs/screenshots/04-katalog-produk.png)
+
+### Penjualan (POS)
+Daftar transaksi dengan metode bayar (CASH/QRIS), status, pagination, dan tombol detail & otorisasi.
+
+![Penjualan POS](docs/screenshots/05-penjualan-pos.png)
+
+### Peringatan Stok Rendah & Habis
+![Stok rendah](docs/screenshots/06-stok-rendah.png)
+
+### Riwayat Stok Masuk (Pembelian)
+Filter nomor PO, tanggal, dan status.
+
+![Stok masuk](docs/screenshots/07-stok-masuk.png)
